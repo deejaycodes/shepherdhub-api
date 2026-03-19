@@ -93,8 +93,7 @@ router.post("/bulk", async (req, res) => {
       results.push({ member: name, step: fu.step, status: "sent" });
       sent++;
     } catch (e: any) {
-      results.push({ member: name, step: fu.step, status: "failed", error: e.message });
-      skipped++;
+      results.push({ member: name, step: fu.step, status: "failed", error: `${e.code || e.status || ""} ${e.message}` });      skipped++;
     }
   }
 
