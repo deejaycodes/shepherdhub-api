@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import aiRoutes from "./routes/ai";
+import smartRoutes from "./routes/smart";
 import { authMiddleware } from "./middleware/auth";
 import { startJobs } from "./jobs/scheduler";
 
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "shepherdhub
 
 // Protected AI routes
 app.use("/api/ai", authMiddleware, aiRoutes);
+app.use("/api/smart", authMiddleware, smartRoutes);
 
 // Start cron jobs
 startJobs();
