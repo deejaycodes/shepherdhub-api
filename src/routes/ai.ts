@@ -115,6 +115,22 @@ router.post("/query", async (req: Request, res: Response) => {
   res.json({ answer });
 });
 
+// AI Sermon Planner
+router.post("/sermon", async (req: Request, res: Response) => {
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: "Topic is required" });
+
+  const system = `You are a sermon preparation assistant for African church pastors. Given a topic or scripture, generate a structured sermon plan. Return ONLY valid JSON with these keys: title (sermon title), scripture (main scripture reference), outline (array of 4-5 main sections), points (array of 3-4 key takeaways), illustrations (array of 2-3 relatable stories or examples relevant to African church context), prayers (array of 3-4 prayer points), hymns (array of 3-4 suggested hymns or worship songs). Make it practical, biblical, and culturally relevant.`;
+
+  const result = await chat(system, `Topic: ${topic}`, 1200);
+  try {
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    res.json(jsonMatch ? JSON.parse(jsonMatch[0]) : { title: topic, scripture: "", outline: [result], points: [], illustrations: [], prayers: [], hymns: [] });
+  } catch {
+    res.json({ title: topic, scripture: "", outline: [result], points: [], illustrations: [], prayers: [], hymns: [] });
+  }
+});
+
 // AI Content Studio — generate social media + blog content
 router.post("/content", async (req: Request, res: Response) => {
   const { topic, churchName } = req.body;
