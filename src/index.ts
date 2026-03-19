@@ -4,6 +4,7 @@ import cors from "cors";
 import aiRoutes from "./routes/ai";
 import smartRoutes from "./routes/smart";
 import checkinRoutes from "./routes/checkin";
+import registerRoutes from "./routes/register";
 import alertRoutes from "./routes/alerts";
 import { authMiddleware } from "./middleware/auth";
 import { startJobs } from "./jobs/scheduler";
@@ -17,8 +18,9 @@ app.use(express.json());
 // Health check
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "shepherdhub-api" }));
 
-// Public check-in (no auth)
+// Public routes (no auth)
 app.use("/api/checkin", checkinRoutes);
+app.use("/api/register", registerRoutes);
 
 // Protected AI routes
 app.use("/api/ai", authMiddleware, aiRoutes);
