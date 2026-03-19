@@ -1,0 +1,118 @@
+import { Router, Request, Response } from "express";
+import { chat } from "../lib/openai";
+import { supabase } from "../lib/supabase";
+
+const router = Router();
+
+// AI Compose — generate personalized messages
+router.post("/compose", async (req: Request, res: Response) => {
+  const { type, member, context, tone = "warm" } = req.body;
+
+  const prompts: Record<string, string> = {
+    "follow-up": `Write a short, ${tone} WhatsApp follow-up message for ${member?.first_name || "a member"} ${member?.last_name || ""} who hasn't attended church recently.${context ? ` Context: ${context}` : ""} Keep it under 3 sentences. Be genuine, not pushy.`,
+    "announcement": `Write a short WhatsApp church announcement. ${tone} tone.${context ? ` Details: ${context}` : ""} Keep it concise. Add relevant emoji.`,
+    "birthday": `Write a short, heartfelt birthday message for ${member?.first_name || "a member"}. ${tone} tone. Under 3 sentences.`,
+    "absence": `Write a caring WhatsApp message to ${member?.first_name || "a member"} who has been absent for a few weeks. ${tone} tone. Don't guilt-trip. Under 3 sentences.`,
+    "welcome": `Write a warm welcome WhatsApp message for ${member?.first_name || "a new visitor"} who visited church for the first time. Under 3 sentences.`,
+  };
+
+  const system = "You are a helpful assistant for African church pastors. Write messages in simple, warm English. Only output the message text.";
+  const message = await chat(system, prompts[type] || prompts["announcement"], 200);
+  res.json({ message });
+});
+
+// AI Insights — churn risk + trends + suggestions
+router.post("/insights", async (req: Request, res: Response) => {
+  const church = (req as any).church;
+  if (!church) return res.status(400).json({ error: "No church" });
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+
+  const [membersRes, attendanceRes, transactionsRes] = await Promise.all([
+    supabase.from("members").select("id, first_name, last_name, status, department, created_at").eq("church_id", church.id),
+    supabase.from("attendance").select("member_id, service_date, present").eq("church_id", church.id).gte("service_date", thirtyDaysAgo),
+    supabase.from("transactions").select("type, amount, transaction_date").eq("church_id", church.id).gte("transaction_date", thirtyDaysAgo),
+  ]);
+
+  const members = membersRes.data || [];
+  const attendance = attendanceRes.data || [];
+  const transactions = transactionsRes.data || [];
+  const serviceDates = [...new Set(attendance.map((a) => a.service_date))];
+
+  // Churn risk calculation
+  const churnRisk = members
+    .filter((m) => m.status === "active")
+    .map((m) => {
+      const attended = attendance.filter((a) => a.member_id === m.id && a.present);
+      const lastDate = attended.sort((a, b) => b.service_date.localeCompare(a.service_date))[0]?.service_date;
+      const daysSince = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000) : 999;
+      const rate = attended.length / Math.max(1, serviceDates.length);
+
+      let risk = 0;
+      const reasons: string[] = [];
+      if (daysSince > 21) { risk += 40; reasons.push(`absent ${daysSince} days`); }
+      else if (daysSince > 14) { risk += 25; reasons.push(`absent ${daysSince} days`); }
+      if (rate < 0.3) { risk += 30; reasons.push(`${Math.round(rate * 100)}% attendance`); }
+      if (attended.length === 0) { risk = 90; reasons.splice(0, reasons.length, "no attendance in 30 days"); }
+
+      return { member_id: m.id, name: `${m.first_name} ${m.last_name}`, risk: Math.min(risk, 100), reason: reasons.join(", ") };
+    })
+    .filter((m) => m.risk > 20)
+    .sort((a, b) => b.risk - a.risk)
+    .slice(0, 15);
+
+  // Trends
+  const active = members.filter((m) => m.status === "active").length;
+  const firstTimers = members.filter((m) => m.status === "first-timer").length;
+  const avgAttendance = serviceDates.length > 0
+    ? Math.round(attendance.filter((a) => a.present).length / serviceDates.length) : 0;
+  const totalIncome = transactions.filter((t) => t.type !== "expense").reduce((s, t) => s + Number(t.amount), 0);
+
+  const trends = [
+    { label: "Total Members", value: String(members.length) },
+    { label: "Active", value: String(active) },
+    { label: "First Timers", value: String(firstTimers) },
+    { label: "Avg Attendance", value: String(avgAttendance) },
+    { label: "30-Day Income", value: `₦${totalIncome.toLocaleString()}` },
+    { label: "At-Risk", value: String(churnRisk.length) },
+  ];
+
+  // AI suggestions
+  const summary = `Church: ${members.length} members, ${active} active, ${firstTimers} first-timers, avg attendance ${avgAttendance}, ${churnRisk.length} at-risk, ₦${totalIncome.toLocaleString()} income. Top risks: ${churnRisk.slice(0, 5).map((c) => `${c.name} (${c.reason})`).join("; ")}`;
+  const suggestionsText = await chat(
+    "You are a church growth advisor. Give 3-4 short, actionable suggestions. One sentence each. Be practical.",
+    summary
+  );
+  const suggestions = suggestionsText.split("\n").map((s) => s.replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+
+  res.json({ churnRisk, trends, suggestions });
+});
+
+// AI Query — natural language questions about church data
+router.post("/query", async (req: Request, res: Response) => {
+  const church = (req as any).church;
+  if (!church) return res.status(400).json({ error: "No church" });
+  const { question } = req.body;
+
+  const [membersRes, attendanceRes, transactionsRes] = await Promise.all([
+    supabase.from("members").select("first_name, last_name, status, department, gender, member_since").eq("church_id", church.id),
+    supabase.from("attendance").select("member_id, service_date, service_type, present").eq("church_id", church.id).order("service_date", { ascending: false }).limit(500),
+    supabase.from("transactions").select("type, amount, transaction_date").eq("church_id", church.id).order("transaction_date", { ascending: false }).limit(200),
+  ]);
+
+  const members = membersRes.data || [];
+  const attendance = attendanceRes.data || [];
+  const transactions = transactionsRes.data || [];
+
+  const dataContext = `Church data: ${members.length} members (${members.filter((m) => m.status === "active").length} active, ${members.filter((m) => m.status === "first-timer").length} first-timers). Gender: ${members.filter((m) => m.gender === "male").length}M/${members.filter((m) => m.gender === "female").length}F. Departments: ${[...new Set(members.map((m) => m.department).filter(Boolean))].join(", ") || "none"}. ${attendance.length} attendance records. ${transactions.length} transactions totaling ₦${transactions.reduce((s, t) => s + Number(t.amount), 0).toLocaleString()}.`;
+
+  const answer = await chat(
+    `You are a church data assistant. Answer using ONLY this data. Be specific with numbers. 2-3 sentences max.\n\n${dataContext}`,
+    question,
+    300
+  );
+
+  res.json({ answer });
+});
+
+export default router;

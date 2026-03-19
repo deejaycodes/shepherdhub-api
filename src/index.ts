@@ -1,0 +1,25 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import aiRoutes from "./routes/ai";
+import { authMiddleware } from "./middleware/auth";
+import { startJobs } from "./jobs/scheduler";
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json());
+
+// Health check
+app.get("/health", (_req, res) => res.json({ status: "ok", service: "shepherdhub-api" }));
+
+// Protected AI routes
+app.use("/api/ai", authMiddleware, aiRoutes);
+
+// Start cron jobs
+startJobs();
+
+app.listen(PORT, () => {
+  console.log(`ShepherdHub API running on port ${PORT}`);
+});
