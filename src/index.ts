@@ -7,6 +7,7 @@ import checkinRoutes from "./routes/checkin";
 import registerRoutes from "./routes/register";
 import alertRoutes from "./routes/alerts";
 import blogRoutes from "./routes/blog";
+import messagingRoutes from "./routes/messaging";
 import { authMiddleware } from "./middleware/auth";
 import { startJobs } from "./jobs/scheduler";
 
@@ -28,6 +29,7 @@ app.use("/api/blog", blogRoutes);
 app.use("/api/ai", authMiddleware, aiRoutes);
 app.use("/api/smart", authMiddleware, smartRoutes);
 app.use("/api/alerts", authMiddleware, alertRoutes);
+app.use("/api/messaging", authMiddleware, messagingRoutes);
 
 // Start cron jobs
 startJobs();
