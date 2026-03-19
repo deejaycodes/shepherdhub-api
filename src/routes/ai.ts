@@ -14,9 +14,12 @@ router.post("/compose", async (req: Request, res: Response) => {
     "birthday": `Write a short, heartfelt birthday message for ${member?.first_name || "a member"}. ${tone} tone. Under 3 sentences.`,
     "absence": `Write a caring WhatsApp message to ${member?.first_name || "a member"} who has been absent for a few weeks. ${tone} tone. Don't guilt-trip. Under 3 sentences.`,
     "welcome": `Write a warm welcome WhatsApp message for ${member?.first_name || "a new visitor"} who visited church for the first time. Under 3 sentences.`,
+    "ministry-dna": `${context}`,
   };
 
-  const system = "You are a helpful assistant for African church pastors. Write messages in simple, warm English. Only output the message text.";
+  const system = type === "ministry-dna"
+    ? "You are a church ministry placement advisor. Based on the member's profile, recommend specific ministry departments and roles they would thrive in. Be practical and specific. Only output the recommendation, 3-4 sentences max."
+    : "You are a helpful assistant for African church pastors. Write messages in simple, warm English. Only output the message text.";
   const message = await chat(system, prompts[type] || prompts["announcement"], 200);
   res.json({ message });
 });
