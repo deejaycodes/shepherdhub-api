@@ -13,6 +13,17 @@ const MESSAGES: Record<string, (name: string, church: string, serviceTimes: stri
     `Hi ${name}! 🏠 We have a special service coming up at ${church}${times ? ` (${times})` : ""} and we'd love for you to join us. See you there!`,
 };
 
+// GET /api/messaging/test — verify Twilio config
+router.get("/test", async (_req, res) => {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+  res.json({
+    configured: !!(sid && process.env.TWILIO_AUTH_TOKEN && from),
+    sid: sid ? `${sid.slice(0, 6)}...${sid.slice(-4)}` : "MISSING",
+    from: from || "MISSING",
+  });
+});
+
 // POST /api/messaging/bulk — send all pending follow-up messages
 router.post("/bulk", async (req, res) => {
   const churchId = (req as any).church.id;
