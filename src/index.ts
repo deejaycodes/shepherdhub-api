@@ -4,6 +4,7 @@ import cors from "cors";
 import aiRoutes from "./routes/ai";
 import smartRoutes from "./routes/smart";
 import checkinRoutes from "./routes/checkin";
+import alertRoutes from "./routes/alerts";
 import { authMiddleware } from "./middleware/auth";
 import { startJobs } from "./jobs/scheduler";
 
@@ -22,6 +23,7 @@ app.use("/api/checkin", checkinRoutes);
 // Protected AI routes
 app.use("/api/ai", authMiddleware, aiRoutes);
 app.use("/api/smart", authMiddleware, smartRoutes);
+app.use("/api/alerts", authMiddleware, alertRoutes);
 
 // Start cron jobs
 startJobs();
