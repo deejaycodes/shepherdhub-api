@@ -6,6 +6,7 @@ import smartRoutes from "./routes/smart";
 import checkinRoutes from "./routes/checkin";
 import registerRoutes from "./routes/register";
 import alertRoutes from "./routes/alerts";
+import blogRoutes from "./routes/blog";
 import { authMiddleware } from "./middleware/auth";
 import { startJobs } from "./jobs/scheduler";
 
@@ -21,6 +22,7 @@ app.get("/health", (_req, res) => res.json({ status: "ok", service: "shepherdhub
 // Public routes (no auth)
 app.use("/api/checkin", checkinRoutes);
 app.use("/api/register", registerRoutes);
+app.use("/api/blog", blogRoutes);
 
 // Protected AI routes
 app.use("/api/ai", authMiddleware, aiRoutes);

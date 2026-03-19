@@ -115,4 +115,23 @@ router.post("/query", async (req: Request, res: Response) => {
   res.json({ answer });
 });
 
+// AI Content Studio — generate social media + blog content
+router.post("/content", async (req: Request, res: Response) => {
+  const { topic, churchName } = req.body;
+  if (!topic) return res.status(400).json({ error: "Topic is required" });
+
+  const system = `You are a social media and content manager for "${churchName || "a church"}". Generate content for all platforms from one topic. Return ONLY valid JSON with these keys: twitter (max 270 chars, punchy, 1-2 hashtags), facebook (2-3 paragraphs, engaging, emojis), instagram (caption with hashtags and call to action), blog_title (compelling article title), blog_body (3-5 paragraphs, well-written article in markdown). Make content warm, faith-based, and engaging for an African church audience.`;
+
+  const result = await chat(system, `Topic: ${topic}`, 1500);
+
+  try {
+    // Try to parse JSON from the response
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    const content = jsonMatch ? JSON.parse(jsonMatch[0]) : { twitter: result, facebook: result, instagram: result, blog_title: topic, blog_body: result };
+    res.json(content);
+  } catch {
+    res.json({ twitter: result, facebook: result, instagram: result, blog_title: topic, blog_body: result });
+  }
+});
+
 export default router;
