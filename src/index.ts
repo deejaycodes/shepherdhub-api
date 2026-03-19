@@ -19,6 +19,10 @@ app.use(express.json());
 
 // Health check
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "shepherdhub-api" }));
+app.get("/twilio-check", (_req, res) => {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  res.json({ configured: !!(sid && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM), sid: sid ? `${sid.slice(0,6)}...${sid.slice(-4)}` : "MISSING" });
+});
 
 // Public routes (no auth)
 app.use("/api/checkin", checkinRoutes);
